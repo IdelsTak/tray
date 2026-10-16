@@ -90,38 +90,52 @@ jobs:
       - name: Run tests on same architecture
         if: ${{ matrix.arch == 'x86_64' }}
         run: ant "-Dqz.test.htmlVectorHeight.repetitions=1" testng
-      - name: Reproduce observer baseline
-        id: observer_none
-        if: ${{ matrix.arch == 'x86_64' }}
+      - name: Probe body scroll width
+        id: body_scroll_width
         continue-on-error: true
-        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=none" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
-      - name: Probe JavaScript boundary
-        id: observer_noop
-        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=body-scroll-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe body offset width
+        id: body_offset_width
         continue-on-error: true
-        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=noop" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
-      - name: Probe DOM metric reads
-        id: observer_metrics
-        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=body-offset-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe body client width
+        id: body_client_width
         continue-on-error: true
-        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=metrics" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
-      - name: Probe JSON stringification
-        id: observer_stringify
-        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=body-client-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe document client width
+        id: html_client_width
         continue-on-error: true
-        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=stringify" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
-      - name: Summarize observer probes
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=html-client-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe body bounding width
+        id: body_rect_width
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=body-rect-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe computed body width
+        id: computed_body_width
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=computed-body-width" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Summarize reduced probes
         if: ${{ always() && matrix.arch == 'x86_64' }}
         run: |
           @"
-          baseline: ${{ steps.observer_none.outcome }}
-          noop: ${{ steps.observer_noop.outcome }}
-          metrics: ${{ steps.observer_metrics.outcome }}
-          stringify: ${{ steps.observer_stringify.outcome }}
+          body scroll width: ${{ steps.body_scroll_width.outcome }}
+          body offset width: ${{ steps.body_offset_width.outcome }}
+          body client width: ${{ steps.body_client_width.outcome }}
+          document client width: ${{ steps.html_client_width.outcome }}
+          body bounding width: ${{ steps.body_rect_width.outcome }}
+          computed body width: ${{ steps.computed_body_width.outcome }}
           "@ >> $env:GITHUB_STEP_SUMMARY
 
-          if ("${{ steps.observer_none.outcome }}" -ne "failure") {
-              throw "Baseline did not reproduce within 1,000 focused cases"
+          $outcomes = @(
+              "${{ steps.body_scroll_width.outcome }}",
+              "${{ steps.body_offset_width.outcome }}",
+              "${{ steps.body_client_width.outcome }}",
+              "${{ steps.html_client_width.outcome }}",
+              "${{ steps.body_rect_width.outcome }}",
+              "${{ steps.computed_body_width.outcome }}"
+          )
+          if ($outcomes -notcontains "success") {
+              throw "No single layout read stabilized 1,000 focused cases"
           }
       - name: Verify installed application
         if: ${{ matrix.arch == 'x86_64' }}

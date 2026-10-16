@@ -478,6 +478,24 @@ public class WebApp extends Application {
             case METRICS:
                 webView.getEngine().executeScript(DOM_METRICS_SCRIPT);
                 return;
+            case BODY_SCROLL_WIDTH:
+                webView.getEngine().executeScript("document.body.scrollWidth");
+                return;
+            case BODY_OFFSET_WIDTH:
+                webView.getEngine().executeScript("document.body.offsetWidth");
+                return;
+            case BODY_CLIENT_WIDTH:
+                webView.getEngine().executeScript("document.body.clientWidth");
+                return;
+            case HTML_CLIENT_WIDTH:
+                webView.getEngine().executeScript("document.documentElement.clientWidth");
+                return;
+            case BODY_RECT_WIDTH:
+                webView.getEngine().executeScript("document.body.getBoundingClientRect().width");
+                return;
+            case COMPUTED_BODY_WIDTH:
+                webView.getEngine().executeScript("getComputedStyle(document.body).width");
+                return;
             case STRINGIFY:
                 webView.getEngine().executeScript(DOM_SNAPSHOT_SCRIPT);
                 return;
@@ -496,6 +514,12 @@ public class WebApp extends Application {
         NONE,
         NOOP,
         METRICS,
+        BODY_SCROLL_WIDTH,
+        BODY_OFFSET_WIDTH,
+        BODY_CLIENT_WIDTH,
+        HTML_CLIENT_WIDTH,
+        BODY_RECT_WIDTH,
+        COMPUTED_BODY_WIDTH,
         STRINGIFY,
         LOGGED;
 
