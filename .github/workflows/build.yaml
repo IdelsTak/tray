@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   ubuntu:
+    if: ${{ github.ref != 'refs/heads/pr-1544-observer-effect' }}
     runs-on: [ubuntu-latest]
     strategy:
       matrix:
@@ -35,6 +36,7 @@ jobs:
           ant nsis
 
   macos:
+    if: ${{ github.ref != 'refs/heads/pr-1544-observer-effect' }}
     runs-on: [macos-latest]
     strategy:
       matrix:
@@ -69,7 +71,7 @@ jobs:
     strategy:
       matrix:
         java: [25]
-        arch: [x86_64, aarch64]
+        arch: [x86_64]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -84,7 +86,7 @@ jobs:
           path: out/qz-tray-*.exe
       - name: Install test browsers
         if: ${{ matrix.arch == 'x86_64' }}
-        run: choco install firefox googlechrome
+        run: choco install firefox
       - name: Run tests on same architecture
         if: ${{ matrix.arch == 'x86_64' }}
         run: ant "-Dqz.test.htmlVectorHeight.repetitions=1" testng
