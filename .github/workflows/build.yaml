@@ -67,6 +67,7 @@ jobs:
           ant nsis
 
   windows:
+    if: ${{ github.ref != 'refs/heads/pr-1544-observer-effect' }}
     runs-on: [windows-latest]
     strategy:
       matrix:
@@ -95,3 +96,30 @@ jobs:
         run: |
           Start-Process -Wait ./out/qz-tray-*.exe -ArgumentList "/S"
           "&'C:/Program Files/QZ Tray/qz-tray.exe' --wait --version|Out-Null"
+
+  vector-height-windows:
+    if: ${{ github.ref == 'refs/heads/pr-1544-observer-effect' }}
+    runs-on: [windows-latest]
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 25
+          distribution: 'liberica'
+      - name: Stress reduced vector height candidate
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=5000" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+
+  vector-height-macos:
+    if: ${{ github.ref == 'refs/heads/pr-1544-observer-effect' }}
+    runs-on: [macos-latest]
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 25
+          distribution: 'liberica'
+      - run: brew install --cask rwts-pdfwriter
+      - name: Stress reduced vector height candidate
+        run: ant -Dqz.test.htmlVectorHeight.repetitions=10000 -Dtestng.pattern="**/HtmlVectorHeightTests.class" unit-tests
