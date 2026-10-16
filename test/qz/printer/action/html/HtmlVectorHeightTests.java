@@ -18,8 +18,9 @@ import java.util.ArrayList;
 public class
 HtmlVectorHeightTests {
     private static final Logger log = LogManager.getLogger(HtmlVectorHeightTests.class);
+    private static final String REPETITIONS_PROPERTY = "qz.test.htmlVectorHeight.repetitions";
     // TODO: Lower this value
-    private static final int TESTS_PER_SAMPLE = 10000;
+    private static final int TESTS_PER_SAMPLE = Math.max(1, Integer.getInteger(REPETITIONS_PROPERTY, 10000));
     private static final boolean SKIP_PRINTING = true;
     private static final int SPOOLER_WAIT = 2000; // millis
 

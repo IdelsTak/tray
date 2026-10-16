@@ -31,6 +31,7 @@ import qz.ws.PrintSocketServer;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +76,47 @@ public class WebApp extends Application {
     private static final Version JDK_8283686_START = Version.valueOf(/* WebKit */ "609.1.0");
     private static final Version JDK_8283686_END = Version.valueOf(/* WebKit */ "612.1.0");
     private static final int JDK_8283686_VECTOR_FRAMES = 30;
+
+    private static final String OBSERVER_PROBE_PROPERTY = "qz.html.vector.observer";
+    private static final ObserverProbe OBSERVER_PROBE = ObserverProbe.fromProperty();
+    private static final String DOM_METRICS_SCRIPT =
+            "(() => {" +
+                    "  const b = document.body;" +
+                    "  const e = document.documentElement;" +
+                    "  const s = getComputedStyle(b);" +
+                    "  void b.scrollWidth; void b.scrollHeight;" +
+                    "  void b.offsetWidth; void b.offsetHeight;" +
+                    "  void b.clientWidth; void b.clientHeight;" +
+                    "  void e.scrollWidth; void e.scrollHeight;" +
+                    "  void e.offsetWidth; void e.offsetHeight;" +
+                    "  void e.clientWidth; void e.clientHeight;" +
+                    "  void b.getBoundingClientRect().width;" +
+                    "  void b.getBoundingClientRect().height;" +
+                    "  void s.marginTop; void s.marginBottom;" +
+                    "  void s.overflowX; void s.overflowY;" +
+                    "  void document.readyState;" +
+                    "  return 0;" +
+                    "})()";
+    private static final String DOM_SNAPSHOT_SCRIPT =
+            "JSON.stringify((() => {" +
+                    "  const b = document.body;" +
+                    "  const e = document.documentElement;" +
+                    "  const s = getComputedStyle(document.body);" +
+                    "  return {" +
+                    "    bodyScroll: b.scrollWidth + 'x' + b.scrollHeight," +
+                    "    bodyOffset: b.offsetWidth + 'x' + b.offsetHeight," +
+                    "    bodyClient: b.clientWidth + 'x' + b.clientHeight," +
+                    "    htmlScroll: e.scrollWidth + 'x' + e.scrollHeight," +
+                    "    htmlOffset: e.offsetWidth + 'x' + e.offsetHeight," +
+                    "    htmlClient: e.clientWidth + 'x' + e.clientHeight," +
+                    "    bodyRect: b.getBoundingClientRect().width + 'x' + b.getBoundingClientRect().height," +
+                    "    marginTop: s.marginTop," +
+                    "    marginBottom: s.marginBottom," +
+                    "    overflowX: s.overflowX," +
+                    "    overflowY: s.overflowY," +
+                    "    readyState: document.readyState" +
+                    "  };" +
+                    "})(), null, 2)";
 
 
     //listens for a Succeeded state to activate image capture
@@ -426,34 +468,41 @@ public class WebApp extends Application {
         });
     }
 
-    private static void debugSize() {
-        String script =
-                "JSON.stringify((() => {" +
-                        "  const b = document.body;" +
-                        "  const e = document.documentElement;" +
-                        "  const s = getComputedStyle(document.body);" +
-                        "  return {" +
-                        "    bodyScroll: b.scrollWidth + 'x' + b.scrollHeight," +
-                        "    bodyOffset: b.offsetWidth + 'x' + b.offsetHeight," +
-                        "    bodyClient: b.clientWidth + 'x' + b.clientHeight," +
-                        "    htmlScroll: e.scrollWidth + 'x' + e.scrollHeight," +
-                        "    htmlOffset: e.offsetWidth + 'x' + e.offsetHeight," +
-                        "    htmlClient: e.clientWidth + 'x' + e.clientHeight," +
-                        "    bodyRect: b.getBoundingClientRect().width + 'x' + b.getBoundingClientRect().height," +
-                        "    marginTop: s.marginTop," +
-                        "    marginBottom: s.marginBottom," +
-                        "    overflowX: s.overflowX," +
-                        "    overflowY: s.overflowY," +
-                        "    readyState: document.readyState" +
-                        "  };" +
-                        "})(), null, 2)";
-        log.warn("\n{}", webView.getEngine().executeScript(script));
+    private static void runObserverProbe() {
+        switch(OBSERVER_PROBE) {
+            case NONE:
+                return;
+            case NOOP:
+                webView.getEngine().executeScript("0");
+                return;
+            case METRICS:
+                webView.getEngine().executeScript(DOM_METRICS_SCRIPT);
+                return;
+            case STRINGIFY:
+                webView.getEngine().executeScript(DOM_SNAPSHOT_SCRIPT);
+                return;
+            case LOGGED:
+                log.warn("\n{}", webView.getEngine().executeScript(DOM_SNAPSHOT_SCRIPT));
+        }
     }
 
     private static double findHeight() {
-        debugSize(); // TODO: Why does this change the size reliability
+        runObserverProbe();
         String heightText = webView.getEngine().executeScript("document.body.scrollHeight").toString();
         return Double.parseDouble(heightText);
+    }
+
+    private enum ObserverProbe {
+        NONE,
+        NOOP,
+        METRICS,
+        STRINGIFY,
+        LOGGED;
+
+        private static ObserverProbe fromProperty() {
+            String configured = System.getProperty(OBSERVER_PROBE_PROPERTY, "logged");
+            return valueOf(configured.replace('-', '_').toUpperCase(Locale.ENGLISH));
+        }
     }
 
     private static void adjustSize(double toWidth, double toHeight) {

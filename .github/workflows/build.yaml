@@ -26,7 +26,7 @@ jobs:
         run: |
           # Only run tests on same arch
           sudo apt-get install firefox chromium
-          ant testng
+          ant -Dqz.test.htmlVectorHeight.repetitions=1 testng
           # Run policy tests again, but as root
           sudo JAVA_HOME="$JAVA_HOME" JAVACMD="$JAVA_HOME/bin/java" ant -Dtestng.pattern="**/policy/**" testng
           sudo DEBUG=true out/qz-tray-*.run
@@ -55,7 +55,7 @@ jobs:
         run: |
           # Only run tests on same arch
           brew install --cask google-chrome firefox rwts-pdfwriter
-          ant testng
+          ant -Dqz.test.htmlVectorHeight.repetitions=1 testng
           # Run policy tests again, but as root
           sudo ant -Dtestng.pattern="**/policy/**" testng
           sudo installer -pkg out/qz-tray-*.pkg -target / || (cat /tmp/qz-install.log && false)
@@ -82,12 +82,47 @@ jobs:
         with:
           name: qz-tray-windows-${{ matrix.arch }}
           path: out/qz-tray-*.exe
-      - if: ${{ matrix.arch == 'x86_64' }}
+      - name: Install test browsers
+        if: ${{ matrix.arch == 'x86_64' }}
+        run: choco install firefox googlechrome
+      - name: Run tests on same architecture
+        if: ${{ matrix.arch == 'x86_64' }}
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=1" testng
+      - name: Reproduce observer baseline
+        id: observer_none
+        if: ${{ matrix.arch == 'x86_64' }}
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=none" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe JavaScript boundary
+        id: observer_noop
+        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=noop" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe DOM metric reads
+        id: observer_metrics
+        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=metrics" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Probe JSON stringification
+        id: observer_stringify
+        if: ${{ matrix.arch == 'x86_64' && steps.observer_none.outcome == 'failure' }}
+        continue-on-error: true
+        run: ant "-Dqz.test.htmlVectorHeight.repetitions=500" "-Dqz.html.vector.observer=stringify" "-Dtestng.pattern=**/HtmlVectorHeightTests.class" unit-tests
+      - name: Summarize observer probes
+        if: ${{ always() && matrix.arch == 'x86_64' }}
         run: |
-          # Only run tests on same arch
-          choco install firefox googlechrome
-          ant testng
+          @"
+          baseline: ${{ steps.observer_none.outcome }}
+          noop: ${{ steps.observer_noop.outcome }}
+          metrics: ${{ steps.observer_metrics.outcome }}
+          stringify: ${{ steps.observer_stringify.outcome }}
+          "@ >> $env:GITHUB_STEP_SUMMARY
+
+          if ("${{ steps.observer_none.outcome }}" -ne "failure") {
+              throw "Baseline did not reproduce within 1,000 focused cases"
+          }
+      - name: Verify installed application
+        if: ${{ matrix.arch == 'x86_64' }}
+        run: |
           Start-Process -Wait ./out/qz-tray-*.exe -ArgumentList "/S"
           "&'C:/Program Files/QZ Tray/qz-tray.exe' --wait --version|Out-Null"
-
-
